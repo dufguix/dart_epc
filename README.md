@@ -11,22 +11,52 @@ This lib is following this [guide](https://www.europeanpaymentscouncil.eu/sites/
 ## Limitations:
 - Iban is not checked. But you can use [iban lib](https://pub.dev/packages/iban).
 - Non-EEA countries are not checked. The BIC field is mandatory for SEPA payment transactions involving participants from non-EEA countries.
+- Inputs are not sanitized. \n \r and other invalid chars must be removed before.
 
-## Usage
+## Getting started
 
+To start, import the dependency in your code:
 ```dart
 import 'package:epc_qr_code/epc_qr_code.dart';
-import 'package:qr/qr.dart';
+```
 
-final epc = Epc(
+Create and validate your payment infos.
+```dart
+try {
+  final epc = Epc(
       bic: "BPOTBEB1",
       name: "Red Cross",
       iban: "BE72000000001616",
       amount: "10",
       information: "Donation");
+} on EpcInvalidException catch (e) {
+  print(e.message); // One field doesn't pass its checker.
+} on EpcTooLongException catch (e) {
+  print(e.message); // Total payload is too long.
+}
+```
 
-
+Create your qr code with a third party lib.
+```dart
+import 'package:qr/qr.dart';
 final qrCode = QrCode.fromUint8List(epc.uint8ListContent(), QrErrorCorrectLevel.M);
 ```
 
+## Usage
+
 Prefer `epc.uint8ListContent()` over `epc.stringContent()`. Dart string are utf16.
+
+You can use checkers for your textFields.
+```dart
+final result = Epc.serviceTagCheck(serviceTag);
+final result = Epc.identificationCheck(identification);
+final result = Epc.bicCheck(bic, version);
+final result = Epc.nameCheck(name);
+final result = Epc.ibanCheck(iban);
+final result = Epc.amountCheck(amount);
+final result = Epc.purposeCheck(purpose);
+final result = Epc.remittanceInfoCheck(remittanceRef, remittanceText);
+final result = Epc.informationCheck(information);
+```
+
+
