@@ -4,5 +4,6 @@
 library;
 
 export 'src/enums.dart';
+export 'src/epc_validator.dart';
 export 'src/epc.dart';
 export 'src/exceptions.dart';

@@ -5,10 +5,11 @@ import "package:convert/convert.dart"
 import 'dart:typed_data';
 
 import "enums.dart";
+import "epc_validator.dart";
 import "exceptions.dart";
 
-/// European Payments Council
-/// Check by yourself: The BIC will continue to be mandatory for SEPA payment transactions involving SCT scheme participants from non-EEA countries.
+/// Factory with validation process.
+/// Check by yourself: Iban format/checksum. And the BIC will continue to be mandatory for SEPA payment transactions involving SCT scheme participants from non-EEA countries.
 /// Throws: [EpcInvalidException] and [EpcTooLongException].
 class Epc {
   factory Epc({
@@ -26,15 +27,15 @@ class Epc {
     String information = "",
     Separator separator = Separator.lf,
   }) {
-    serviceTagCheck(serviceTag, true);
-    identificationCheck(identification, true);
-    bicCheck(bic, version, true);
-    nameCheck(name, true);
-    ibanCheck(iban, true);
-    amountCheck(amount, true);
-    purposeCheck(purpose, true);
-    remittanceInfoCheck(remittanceRef, remittanceText, true);
-    informationCheck(information, true);
+    EpcValidator.serviceTagCheck(serviceTag, true);
+    EpcValidator.identificationCheck(identification, true);
+    EpcValidator.bicCheck(bic, version, true);
+    EpcValidator.ibanCheck(iban, true);
+    EpcValidator.nameCheck(name, true);
+    EpcValidator.amountCheck(amount, true);
+    EpcValidator.purposeCheck(purpose, true);
+    EpcValidator.remittanceInfoCheck(remittanceRef, remittanceText, true);
+    EpcValidator.informationCheck(information, true);
     final epc = Epc._(
       serviceTag: serviceTag,
       version: version,
@@ -85,6 +86,9 @@ class Epc {
   final String information; // Beneficiary to Originator note
   final Separator separator;
 
+  /// The total payload limitation in bytes (not chars). May vary depending on encoding.
+  static const maxBytes = 331;
+
   /// Limitation: Dart strings are UTF16 encodings.
   /// This method will not check byte length.
   /// Use [uint8ListContent] for the right encoding.
@@ -127,127 +131,7 @@ class Epc {
     return bytes;
   }
 
-  static const serviceTagLength = 3;
-  static const versionLength = 3;
-  static const identificationLength = 3;
-  static const bicMaxLength = 11;
-  static const nameMaxLength = 70;
-  static const ibanMaxLength = 34;
-  static const amountMaxLength = 12;
-  static final amountRegEx = RegExp(r'^\d+(?:\.\d{1,2})?$');
-  static const purposeMaxLength = 4;
-  static const remittanceRefMaxLength = 35;
-  static const remittanceTextMaxLength = 140;
-  static const informationMaxLength = 70;
-
-  /// The total payload limitation in bytes (not chars). May vary depending on encoding.
-  static const maxBytes = 331;
-
-  static CheckResult serviceTagCheck(String val,
-      [bool throwException = false]) {
-    var result = CheckResult.pass;
-    if (val.length != serviceTagLength) result = CheckResult.badLength;
-    if (throwException && result != CheckResult.pass) {
-      throw EpcInvalidException("$val: $result", result);
-    }
-    return result;
-  }
-
-  static CheckResult identificationCheck(String val,
-      [bool throwException = false]) {
-    var result = CheckResult.pass;
-    if (val.length != identificationLength) result = CheckResult.badLength;
-    if (throwException && result != CheckResult.pass) {
-      throw EpcInvalidException("$val: $result", result);
-    }
-    return result;
-  }
-
-  /// Mandatory with V1
-  /// Check by yourself: The BIC will continue to be mandatory for SEPA payment transactions involving SCT scheme participants from non-EEA countries.
-  static CheckResult bicCheck(String val, Version version,
-      [bool throwException = false]) {
-    var result = CheckResult.pass;
-    if (version == Version.v1 && val.isEmpty) result = CheckResult.mandatory;
-    if (val.length > bicMaxLength) result = CheckResult.tooLong;
-    if (throwException && result != CheckResult.pass) {
-      throw EpcInvalidException("$val: $result", result);
-    }
-    return result;
-  }
-
-  static CheckResult nameCheck(String val, [bool throwException = false]) {
-    var result = CheckResult.pass;
-    if (val.isEmpty) result = CheckResult.mandatory;
-    if (val.length > nameMaxLength) result = CheckResult.tooLong;
-    if (throwException && result != CheckResult.pass) {
-      throw EpcInvalidException("$val: $result", result);
-    }
-    return result;
-  }
-
-  static CheckResult ibanCheck(String val, [bool throwException = false]) {
-    var result = CheckResult.pass;
-    if (val.isEmpty) result = CheckResult.mandatory;
-    if (val.length > ibanMaxLength) result = CheckResult.tooLong;
-    if (throwException && result != CheckResult.pass) {
-      throw EpcInvalidException("$val: $result", result);
-    }
-    return result;
-  }
-
-  /// Amount must be larger than or equal to 0.01, and cannot be larger than 999999999.99
-  static CheckResult amountCheck(String val, [bool throwException = false]) {
-    var result = CheckResult.pass;
-    if (val.length > amountMaxLength) result = CheckResult.tooLong;
-    if (val.isNotEmpty && !amountRegEx.hasMatch(val)) {
-      result = CheckResult.badValue;
-    }
-    if (throwException && result != CheckResult.pass) {
-      throw EpcInvalidException("$val: $result", result);
-    }
-    return result;
-  }
-
-  static CheckResult purposeCheck(String val, [bool throwException = false]) {
-    var result = CheckResult.pass;
-    if (val.length > purposeMaxLength) result = CheckResult.tooLong;
-    if (throwException && result != CheckResult.pass) {
-      throw EpcInvalidException("$val: $result", result);
-    }
-    return result;
-  }
-
-  static CheckResult remittanceInfoCheck(
-      String remittanceRef, String remittanceText,
-      [bool throwException = false]) {
-    var result = CheckResult.pass;
-    if (remittanceRef.isNotEmpty && remittanceText.isNotEmpty) {
-      result = CheckResult.conflict;
-    }
-    if (remittanceRef.length > remittanceRefMaxLength) {
-      result = CheckResult.tooLong;
-    }
-    if (remittanceText.length > remittanceTextMaxLength) {
-      result = CheckResult.tooLong;
-    }
-    if (throwException && result != CheckResult.pass) {
-      throw EpcInvalidException(
-          "$remittanceRef, $remittanceText: $result", result);
-    }
-    return result;
-  }
-
-  static CheckResult informationCheck(String val,
-      [bool throwException = false]) {
-    var result = CheckResult.pass;
-    if (val.length > informationMaxLength) result = CheckResult.tooLong;
-    if (throwException && result != CheckResult.pass) {
-      throw EpcInvalidException("$val: $result", result);
-    }
-    return result;
-  }
-
+  /// Use the [Epc] factory with validation process. Refer to it for exceptions.
   Epc copyWith({
     String? serviceTag,
     Version? version,
